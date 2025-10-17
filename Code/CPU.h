@@ -9,6 +9,8 @@
 #include <string>
 using namespace std;
 
+#define DMEMORY_SIZE 4096
+
 // For ALUOp
 enum {
 	ADD,
@@ -36,9 +38,9 @@ public:
 		bit30 = bitset<1>((instr.to_ulong() >> 30) & 1);
 		bit14to12 = bitset<3>((instr.to_ulong() >> 12) & 7);
 
-		// DEBUG
 		if (raw_instr.to_ulong() == 0) return;
 
+		// DEBUG
 		cout << "Instruction: " << instr << endl;
 		cout << "Opcode: " << opcode << endl;
 		cout << "rs1: " << rs1 << endl;
@@ -89,6 +91,7 @@ private:
 	int32_t regFile[32];
 
 	void write(bitset<5> registerNum, bitset<32> val){
+		if (registerNum.to_ulong() == 0) return;
 		regFile[(int32_t) registerNum.to_ulong()] = (int32_t) val.to_ulong();
 	}
 
@@ -119,6 +122,9 @@ public:
 	void update_load(bitset<5> rs1, bitset<5> rs2) {
 		readData1 = read(rs1);
 		readData2 = read(rs2);
+		
+		// DEBUG
+		printf("RegFile: readData1 = %d, readData2 = %d\n", (int32_t) readData1.to_ulong(), (int32_t) readData2.to_ulong());
 	}
 	
 	void update_store(bitset<5> rd, bitset<32> writeData, bitset<1> regWrite) {
@@ -138,6 +144,7 @@ public:
 		// B-type: imm[12|10:5] <-> bits 31:25, imm[4:1|11] <-> 11:7
 		// U-type: imm[31:12] <-> bits 31:12
 		// J-type: imm[20|10:1|11|19:12] <-> bits 31:12
+		int32_t instr_signed = (int32_t) instr.to_ulong();
 		switch (opcode.to_ulong()) {
 			case 0b0110011: // R-type
 				imm = bitset<32>(0);
@@ -145,26 +152,26 @@ public:
 			case 0b0010011: // I-type (not lw/lbu)	
 			case 0b1100111: // jalr
 			case 0b0000011: // lw / lbu
-				imm = bitset<32>((instr.to_ulong() & 0xFFF00000) >> 20);
+				imm = bitset<32>(((int32_t) (instr_signed & 0xFFF00000)) >> 20);
 				break;
 			case 0b0100011: { // sw / sh
-				unsigned long imm_11_5 = (instr.to_ulong() & 0xFE000000) >> 20;
-				unsigned long imm_4_0 = (instr.to_ulong() & 0x00000F80) >> 7;
+				int32_t imm_11_5 = ((int32_t) (instr_signed & 0xFE000000)) >> 20;
+				int32_t imm_4_0 = ((int32_t) (instr_signed & 0x00000F80)) >> 7;
 				imm = bitset<32>(imm_11_5 & imm_4_0);	
 
 				break;
 			}
 			case 0b1100011: { // bne
-				unsigned long imm_12 = (instr.to_ulong() & 0x80000000) >> 12; // instr[31]
-				unsigned long imm_10_5 = (instr.to_ulong() & 0x7E000000) >> 20; // instr[30:25]
-				unsigned long imm_4_1 = (instr.to_ulong() & 0x00000F00) >> 7; // instr[11:8]
-				unsigned long imm_11 = (instr.to_ulong() & 0x00000080) >> 4; // instr[7]	
+				int32_t imm_12 = ((int32_t) (instr_signed & 0x80000000)) >> 12; // instr[31]
+				int32_t imm_10_5 = ((int32_t) (instr_signed & 0x7E000000)) >> 20; // instr[30:25]
+				int32_t imm_4_1 = ((int32_t) (instr_signed & 0x00000F00)) >> 7; // instr[11:8]
+				int32_t imm_11 = ((int32_t) (instr_signed & 0x00000080)) >> 4; // instr[7]	
 				imm = bitset<32>(imm_12 & imm_10_5 & imm_4_1 & imm_11);
 
 				break;
 			}
 			case 0b0110111: { // lui
-				unsigned long imm_31_12 = instr.to_ulong() & 0xFFFFF000;	
+				int32_t imm_31_12 = instr_signed & 0xFFFFF000;	
 				imm = bitset<32>(imm_31_12);
 
 				break;
@@ -205,8 +212,8 @@ public:
 	*/
 
 	void update(bitset<32> input0, bitset<32> input1, bitset<4> aluOp) {
-		unsigned long input0_ulong = input0.to_ulong();
-		unsigned long input1_ulong = input1.to_ulong();
+		int32_t input0_ulong = (int32_t) input0.to_ulong();
+		int32_t input1_ulong = (int32_t) input1.to_ulong();
 		
 		zero = bitset<32>(!(input0_ulong - input1_ulong)); // for bne (?)
 
@@ -221,7 +228,7 @@ public:
 				aluResult = bitset<32>(input0_ulong << input1_ulong);
 				break;
 			case SRA:
-				aluResult = bitset<32>((int32_t) input0_ulong >> input1_ulong);
+				aluResult = bitset<32>(input0_ulong >> (uint32_t) input1_ulong);
 				break;
 			case AND:
 				aluResult = bitset<32>(input0_ulong & input1_ulong);
@@ -230,7 +237,7 @@ public:
 				aluResult = bitset<32>(input0_ulong | input1_ulong);
 				break;
 			case LESS:
-				aluResult = bitset<32>((int32_t) input0_ulong < (int32_t) input1_ulong ? 1 : 0);
+				aluResult = bitset<32>(input0_ulong < input1_ulong ? 1 : 0);
 				break;
 			case NOTEQUAL:
 				aluResult = bitset<32>(input0_ulong != input1_ulong ? 1 : 0);
@@ -273,14 +280,17 @@ public:
 
 class DataMem {
 private:
-	char dmemory[4096];
+	char dmemory[DMEMORY_SIZE];
 
 	bitset<32> read(bitset<32> addr_bitset) {
 		int32_t addr = (int32_t) addr_bitset.to_ulong();
 		
-		if (addr + 3 > 4096) exit(1);
+		if (addr + 3 > DMEMORY_SIZE) exit(1);
 
 		int32_t ret = (dmemory[addr + 3] << 24) | (dmemory[addr + 2] << 16) | (dmemory[addr + 1] << 8) | dmemory[addr];
+		
+		// DEBUG: Print part of memory that got read with address and data
+		printf("DMEM READ: Address %d to %d, Data %d\n", addr, addr + 3, ret);
 
 		return bitset<32>(ret);
 	}
@@ -289,12 +299,19 @@ private:
 		int32_t addr = (int32_t) addr_bitset.to_ulong();
 		int32_t writeData = (int32_t) writeData_bitset.to_ulong();
 
-		if (addr + 3 > 4096) exit(1);
+		if (addr + 3 > DMEMORY_SIZE) exit(1);
 
 		dmemory[addr + 3] = (writeData >> 24) & 0xFF;
 		dmemory[addr + 2] = (writeData >> 16) & 0xFF;
 		dmemory[addr + 1] = (writeData >> 8) & 0xFF;
 		dmemory[addr] = writeData & 0xFF;
+		
+		// DEBUG: Print part of memory that got written to with address and data
+		for (int i = 0; i < 4; i++) {
+			printf("DMEM WRITE: Address %d, Data %d\n", addr + i, (int32_t) dmemory[addr + i]);
+		}
+	
+
 	}
 
 public:
@@ -344,6 +361,8 @@ public:
 
 				aluOp = bitset<4>(R);
 
+				printf("Controller: R-type case\n");
+
 				break;
 			case 0b0010011: // I-type
 				regWrite.set();
@@ -354,6 +373,8 @@ public:
 				memToReg.reset();
 
 				aluOp = bitset<4>(I);
+
+				printf("Controller: I-type case\n");
 
 				break;
 			case 0b0000011: // lw or lbu
@@ -366,6 +387,8 @@ public:
 
 				aluOp = bitset<4>(ADD);
 
+				printf("Controller: lw/lbu case\n");
+
 				break;
 			case 0b0100011: // sw 
 				regWrite.reset();
@@ -377,6 +400,8 @@ public:
 
 				aluOp = bitset<4>(ADD);
 
+				printf("Controller: sw case\n");
+
 				break;
 			case 0b1100011: // bne
 				regWrite.reset();
@@ -387,6 +412,8 @@ public:
 				memToReg.reset();
 
 				aluOp = bitset<4>(NOTEQUAL);
+
+				printf("Controller: bne case\n");
 
 				break;
 
@@ -400,6 +427,8 @@ public:
 
 				aluOp = bitset<4>(SL);
 
+				printf("Controller: lui case\n");
+
 				break;
 
 			case 0b1100111: // jalr
@@ -411,6 +440,8 @@ public:
 				memToReg.reset();
 
 				aluOp = bitset<4>(ADD);
+
+				printf("Controller: jalr case\n");
 
 				break;
 			default:
@@ -467,6 +498,9 @@ public:
 						break;
 					case 0b101: // sra
 						aluControlOp = bitset<4>(SRA);
+						break;
+					case 0b111: // and
+						aluControlOp = bitset<4>(AND);
 						break;
 					default:
 						break;
@@ -538,6 +572,7 @@ public:
 		if (cur_instr.opcode.to_ulong() == 0) {
 			cout << "Reached OPCODE 0, exiting\n" << endl;
 			*done = true;
+			return;
 		}
 		
 		controller.update(cur_instr.opcode); // Generate new control signals

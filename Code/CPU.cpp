@@ -50,7 +50,7 @@ string hex_char_to_bin(char c) {
 Instruction InstrMem::fetch(bitset<32> readAddr) {
 	int32_t offset = ((int32_t) readAddr.to_ulong()) * 2;
 	
-	printf("Fetching instruction at address %d\n", offset);
+	printf("Fetching instruction at address %lu\n", readAddr.to_ulong());
 
 	if (offset + 7 >= 4096) { // 4096 is IMEM size
 		throw std::runtime_error("readAddr for imem is out of bounds");

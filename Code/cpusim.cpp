@@ -47,14 +47,14 @@ int main(int argc, char* argv[])
 			char x; 
 			line2>>x;
 			instMem[i] = x; // be careful about hex
-			cout<<instMem[i]<<endl;
+			// cout<<instMem[i]<<endl;
 			i++;
 			line2>>x;
 			instMem[i] = x; // be careful about hex
-			cout<<instMem[i]<<endl;
+			// cout<<instMem[i]<<endl;
 			i++;
 		}
-	int maxPC= i/4; 
+	int maxPC= (i-1)/2; 
 	printf("maxPC = %d\n", maxPC);
 
 	/* Instantiate your CPU object here.  CPU class is the main class in this project that defines different components of the processor.
@@ -75,8 +75,8 @@ int main(int argc, char* argv[])
 	{
 		myCPU.update(&done);
 		myCPU.incPC();
-		if (myCPU.readPC() > maxPC) {
-			printf("PC %lu exceeded maxPC%d\n", myCPU.readPC(), maxPC);
+		if (myCPU.readPC() >= maxPC) {
+			printf("PC %lu reached maxPC%d\n", myCPU.readPC(), maxPC);
 			break;
 		}
 	}
