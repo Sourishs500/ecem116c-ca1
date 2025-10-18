@@ -24,8 +24,16 @@ enum {
 	EQUAL, // equal to
 	R, // R-type (func3/func7)
 	I, // I-type (func3)
+	L, // lw/lbu
+	S // sw/sh
 };
 
+// For lbu, sh sizes
+enum {
+	WORD,
+	HALF,
+	BYTE
+};
 
 class Instruction {
 public:
@@ -286,9 +294,10 @@ class DataMem {
 private:
 	char dmemory[DMEMORY_SIZE];
 
-	bitset<32> read(bitset<32> addr_bitset) {
+	bitset<32> read(bitset<32> addr_bitset, bitset<2> rw_size) {
 		uint32_t addr = (uint32_t) addr_bitset.to_ulong(); // addr should be unsigned because it can't be negative
-		
+		uint32_t size = rw_size.to_ulong();
+
 		if (addr < 0) {
 			printf("ERROR DataMem::read: addr < 0\n");
 			exit(1);
@@ -298,18 +307,26 @@ private:
 			exit(1);
 		}
 
-		int32_t ret = (dmemory[addr + 3] << 24) | (dmemory[addr + 2] << 16) | (dmemory[addr + 1] << 8) | dmemory[addr];
-		
-		// DEBUG: Print part of memory that got read with address and data
-		printf("DMEM READ: Address %d to %d, Data %x\n", addr, addr + 3, ret);
+		int32_t ret;
 
+		if (size == WORD) {
+			ret = (((uint32_t) dmemory[addr + 3] << 24) & 0xFF000000) | ((((uint32_t) dmemory[addr + 2]) << 16) & 0x00FF0000) | ((((uint32_t) dmemory[addr + 1]) << 8) & 0x0000FF00) | (((uint32_t) dmemory[addr]) & 0xFF);
+			// DEBUG: Print part of memory that got read with address and data
+			printf("DMEM READ, WORD: Address %d to %d, Data %x\n", addr, addr + 3, ret);
+		}
+		else if (size == BYTE) {
+			ret = (uint8_t) dmemory[addr]; // Should zero-extend
+			printf("DMEM READ, BYTE: Address %d, Data %hhx\n", addr, dmemory[addr]);
+		}
+		
 		return bitset<32>(ret);
 	}
 
-	void write(bitset<32> addr_bitset, bitset<32> writeData_bitset) {
+	void write(bitset<32> addr_bitset, bitset<32> writeData_bitset, bitset<2> rw_size) {
 		uint32_t addr = (uint32_t) addr_bitset.to_ulong();
 		int32_t writeData = (int32_t) writeData_bitset.to_ulong();
-		
+		uint32_t size = rw_size.to_ulong();
+
 		if (addr < 0) {
 			printf("ERROR DataMem::read: addr < 0\n");
 			exit(1);
@@ -318,15 +335,25 @@ private:
 			printf("ERROR Datamem::read: addr + 3 > DMEMORY_SIZE\n");
 			exit(1);
 		}
-
-		dmemory[addr + 3] = (writeData >> 24) & 0xFF;
-		dmemory[addr + 2] = (writeData >> 16) & 0xFF;
-		dmemory[addr + 1] = (writeData >> 8) & 0xFF;
-		dmemory[addr] = writeData & 0xFF;
 		
-		// DEBUG: Print part of memory that got written to with address and data
-		for (int i = 0; i < 4; i++) {
-			printf("DMEM WRITE: Address %d, Data %x\n", addr + i, (int32_t) dmemory[addr + i]);
+		if (size == WORD) {
+			dmemory[addr + 3] = (writeData >> 24) & 0xFF;
+			dmemory[addr + 2] = (writeData >> 16) & 0xFF;
+			dmemory[addr + 1] = (writeData >> 8) & 0xFF;
+			dmemory[addr] = writeData & 0xFF;
+			
+			// DEBUG: Print part of memory that got written to with address and data
+			for (int i = 0; i < 4; i++) {
+				printf("DMEM WRITE, WORD: Address %d, Data %hhx\n", addr + i, (int8_t) dmemory[addr + i]);
+			}
+		} else if (size == HALF) {
+			dmemory[addr + 1] = (uint8_t) ((writeData >> 8) & 0xFF);
+			dmemory[addr] = (uint8_t) (writeData & 0xFF);
+			
+			// DEBUG: Print part of memory that got written to with address and data
+			for (int i = 0; i < 2; i++) {
+				printf("DMEM WRITE, HALF: Address %d, Data %hhx\n", addr + i, (int8_t) dmemory[addr + i]);
+			}
 		}
 	
 
@@ -342,13 +369,13 @@ public:
 	// Output
 	bitset<32> readData;
 	
-	void update(bitset<32> addr, bitset<32> writeData, bitset<1> memRead, bitset<1> memWrite) {
+	void update(bitset<32> addr, bitset<32> writeData, bitset<1> memRead, bitset<1> memWrite, bitset<2> rw_size) {
 		// TODO: Verify whether only one of memWrite/memRead can be 1 at the same time
 		if (memWrite.to_ulong() == 1) {
-			write(addr, writeData);
+			write(addr, writeData, rw_size);
 		}
 		if (memRead.to_ulong() == 1) {
-			readData = read(addr);
+			readData = read(addr, rw_size);
 		}
 	}
 };
@@ -366,7 +393,7 @@ public:
 	bitset<1> aluSrc;
 	bitset<1> regWrite;
 
-	bitset<1> lui;
+	bitset<1> lui; // For lui 
 
 	void update(bitset<7> opcode){
 		// Generate all signals except for aluOp
@@ -411,7 +438,7 @@ public:
 
 				lui.reset();
 
-				aluOp = bitset<4>(ADD);
+				aluOp = bitset<4>(L);
 
 				printf("Controller: lw/lbu case\n");
 
@@ -426,7 +453,7 @@ public:
 
 				lui.reset();
 
-				aluOp = bitset<4>(ADD);
+				aluOp = bitset<4>(S);
 
 				printf("Controller: sw case\n");
 
@@ -502,8 +529,12 @@ public:
 	
 	// Output
 	bitset<4> aluControlOp; // Control signal to be routed to ALU
+	
+	bitset<2> lui;
+	bitset<2> rw_size;
 
 	void update(bitset<1> bit30, bitset<3> bits14to12, bitset<4> aluOp) {
+		lui = bitset<2>(0); // Reset
 		switch (aluOp.to_ulong()) {
 			case ADD:
 				aluControlOp = aluOp;
@@ -555,6 +586,30 @@ public:
 					default:
 						break;
 				}		
+				break;
+			case L:
+				switch (bits14to12.to_ulong()) {
+					case 0b010: // lw
+						aluControlOp = bitset<4>(ADD);
+						rw_size = bitset<2>(WORD);
+						break;
+					case 0b100: // lbu
+						aluControlOp = bitset<4>(ADD);
+						rw_size = bitset<2>(BYTE);
+						break;
+				}
+				break;
+			case S:
+				switch (bits14to12.to_ulong()) {
+					case 0b010: // sw
+						aluControlOp = bitset<4>(ADD);
+						rw_size = bitset<2>(WORD);
+						break;
+					case 0b001: // sh
+						aluControlOp = bitset<4>(ADD);
+						rw_size = bitset<2>(HALF);
+						break;
+				}
 				break;
 			default:
 				break;
@@ -625,7 +680,7 @@ public:
 		aluMux.update(regFile.readData2, immGen.imm, controller.aluSrc);	
 		alu.update(luiMux.output, aluMux.output, aluController.aluControlOp);
 		
-		dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite);
+		dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite, aluController.rw_size);
 		wbMux.update(alu.aluResult, dataMem.readData, controller.memToReg);
 
 		regFile.update_store(cur_instr.rd, wbMux.output, controller.regWrite);
