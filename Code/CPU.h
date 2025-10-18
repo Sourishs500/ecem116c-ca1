@@ -114,7 +114,7 @@ public:
 	void regDump() {
 		printf(" ");
 		for (int i = 0; i < 32; i++) {
-			printf("x%d = %d ", i, regFile[i]);
+			printf("x%d = %x ", i, regFile[i]);
 		}
 		printf("\n");
 	}
@@ -175,6 +175,7 @@ public:
 			}
 			case 0b0110111: { // lui
 				int32_t imm_31_12 = instr_signed & 0xFFFFF000;	
+				// int32_t imm_final = imm_31_12 << 12; // Perform the left shift for the lui instr
 				imm = bitset<32>(imm_31_12);
 
 				break;
@@ -218,7 +219,7 @@ public:
 		int32_t input0_ulong = (int32_t) input0.to_ulong();
 		int32_t input1_ulong = (int32_t) input1.to_ulong();
 		
-		zero = bitset<32>(!((input0_ulong - input1_ulong) == 0)); // for bne (?)
+		zero = bitset<32>(!((input0_ulong - input1_ulong) == 0)); // for bne
 
 		switch (aluOp.to_ulong()) {
 			case ADD:
@@ -365,6 +366,8 @@ public:
 	bitset<1> aluSrc;
 	bitset<1> regWrite;
 
+	bitset<1> lui;
+
 	void update(bitset<7> opcode){
 		// Generate all signals except for aluOp
 		switch (opcode.to_ulong()) {
@@ -375,6 +378,8 @@ public:
 				memRead.reset();
 				memWrite.reset();
 				memToReg.reset();
+
+				lui.reset();
 
 				aluOp = bitset<4>(R);
 
@@ -389,6 +394,8 @@ public:
 				memWrite.reset();
 				memToReg.reset();
 
+				lui.reset();
+
 				aluOp = bitset<4>(I);
 
 				printf("Controller: I-type case\n");
@@ -401,6 +408,8 @@ public:
 				memRead.set();
 				memWrite.reset();
 				memToReg.set();
+
+				lui.reset();
 
 				aluOp = bitset<4>(ADD);
 
@@ -415,6 +424,8 @@ public:
 				memWrite.set();
 				memToReg.reset();
 
+				lui.reset();
+
 				aluOp = bitset<4>(ADD);
 
 				printf("Controller: sw case\n");
@@ -427,6 +438,8 @@ public:
 				memRead.reset();
 				memWrite.reset();
 				memToReg.reset();
+
+				lui.reset();
 
 				aluOp = bitset<4>(NOTEQUAL);
 
@@ -442,7 +455,9 @@ public:
 				memWrite.reset();
 				memToReg.reset();
 
-				aluOp = bitset<4>(SL);
+				lui.set();
+
+				aluOp = bitset<4>(ADD);
 
 				printf("Controller: lui case\n");
 
@@ -455,6 +470,8 @@ public:
 				memRead.reset();
 				memWrite.reset();
 				memToReg.reset();
+
+				lui.reset();
 
 				aluOp = bitset<4>(ADD);
 
@@ -474,6 +491,7 @@ public:
 			<< " memWrite: " << memWrite 
 			<< " memToReg: " << memToReg 
 			<< " aluOp: " << aluOp 
+			<< " lui: " << lui
 			<< "\n\n";
 	}
 
@@ -566,6 +584,7 @@ public:
 
 	ImmGen immGen;
 	
+	Mux2 luiMux; // Mux that selects between 0 (if lui control bit is set) and rs1 (if lui control bit is not set)
 	Mux2 aluMux; // Mux that selects between readData2 and immGen
 	
 	ALU alu;
@@ -601,9 +620,10 @@ public:
 		immGen.update(cur_instr.instr, cur_instr.opcode);
 		shiftLeftOne.update(immGen.imm);
 		addPCImm.update(PC_bitset, shiftLeftOne.result);
-
+		
+		luiMux.update(regFile.readData1, bitset<32>(0), controller.lui);
 		aluMux.update(regFile.readData2, immGen.imm, controller.aluSrc);	
-		alu.update(regFile.readData1, aluMux.output, aluController.aluControlOp);
+		alu.update(luiMux.output, aluMux.output, aluController.aluControlOp);
 		
 		dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite);
 		wbMux.update(alu.aluResult, dataMem.readData, controller.memToReg);
