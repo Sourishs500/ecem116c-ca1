@@ -157,16 +157,19 @@ public:
 			case 0b0100011: { // sw / sh
 				int32_t imm_11_5 = ((int32_t) (instr_signed & 0xFE000000)) >> 20;
 				int32_t imm_4_0 = ((int32_t) (instr_signed & 0x00000F80)) >> 7;
-				imm = bitset<32>(imm_11_5 & imm_4_0);	
+				imm = bitset<32>(imm_11_5 | imm_4_0);	
 
 				break;
 			}
 			case 0b1100011: { // bne
-				int32_t imm_12 = ((int32_t) (instr_signed & 0x80000000)) >> 12; // instr[31]
+				int32_t imm_12 = ((int32_t) (instr_signed & 0x80000000)) >> 19; // instr[31]
 				int32_t imm_10_5 = ((int32_t) (instr_signed & 0x7E000000)) >> 20; // instr[30:25]
 				int32_t imm_4_1 = ((int32_t) (instr_signed & 0x00000F00)) >> 7; // instr[11:8]
-				int32_t imm_11 = ((int32_t) (instr_signed & 0x00000080)) >> 4; // instr[7]	
-				imm = bitset<32>(imm_12 & imm_10_5 & imm_4_1 & imm_11);
+				int32_t imm_11 = ((int32_t) (instr_signed & 0x00000080)) << 4; // instr[7]	
+				imm = bitset<32>(imm_12 | imm_10_5 | imm_4_1 | imm_11);
+
+				// DEBUG
+				cout << "imm parts: imm_12=" << bitset<32>(imm_12) << ", imm_10_5=" << bitset<32>(imm_10_5) << ", imm_4_1=" << bitset<32>(imm_4_1) << ", imm_11=" << bitset<32>(imm_11) << "\n";
 
 				break;
 			}
@@ -215,7 +218,7 @@ public:
 		int32_t input0_ulong = (int32_t) input0.to_ulong();
 		int32_t input1_ulong = (int32_t) input1.to_ulong();
 		
-		zero = bitset<32>(!(input0_ulong - input1_ulong)); // for bne (?)
+		zero = bitset<32>(!((input0_ulong - input1_ulong) == 0)); // for bne (?)
 
 		switch (aluOp.to_ulong()) {
 			case ADD:
@@ -283,23 +286,37 @@ private:
 	char dmemory[DMEMORY_SIZE];
 
 	bitset<32> read(bitset<32> addr_bitset) {
-		int32_t addr = (int32_t) addr_bitset.to_ulong();
+		uint32_t addr = (uint32_t) addr_bitset.to_ulong(); // addr should be unsigned because it can't be negative
 		
-		if (addr + 3 > DMEMORY_SIZE) exit(1);
+		if (addr < 0) {
+			printf("ERROR DataMem::read: addr < 0\n");
+			exit(1);
+		}
+		if (addr + 3 > DMEMORY_SIZE) {
+			printf("ERROR Datamem::read: addr + 3 > DMEMORY_SIZE\n");
+			exit(1);
+		}
 
 		int32_t ret = (dmemory[addr + 3] << 24) | (dmemory[addr + 2] << 16) | (dmemory[addr + 1] << 8) | dmemory[addr];
 		
 		// DEBUG: Print part of memory that got read with address and data
-		printf("DMEM READ: Address %d to %d, Data %d\n", addr, addr + 3, ret);
+		printf("DMEM READ: Address %d to %d, Data %x\n", addr, addr + 3, ret);
 
 		return bitset<32>(ret);
 	}
 
 	void write(bitset<32> addr_bitset, bitset<32> writeData_bitset) {
-		int32_t addr = (int32_t) addr_bitset.to_ulong();
+		uint32_t addr = (uint32_t) addr_bitset.to_ulong();
 		int32_t writeData = (int32_t) writeData_bitset.to_ulong();
-
-		if (addr + 3 > DMEMORY_SIZE) exit(1);
+		
+		if (addr < 0) {
+			printf("ERROR DataMem::read: addr < 0\n");
+			exit(1);
+		}
+		if (addr + 3 > DMEMORY_SIZE) {
+			printf("ERROR Datamem::read: addr + 3 > DMEMORY_SIZE\n");
+			exit(1);
+		}
 
 		dmemory[addr + 3] = (writeData >> 24) & 0xFF;
 		dmemory[addr + 2] = (writeData >> 16) & 0xFF;
@@ -308,7 +325,7 @@ private:
 		
 		// DEBUG: Print part of memory that got written to with address and data
 		for (int i = 0; i < 4; i++) {
-			printf("DMEM WRITE: Address %d, Data %d\n", addr + i, (int32_t) dmemory[addr + i]);
+			printf("DMEM WRITE: Address %d, Data %x\n", addr + i, (int32_t) dmemory[addr + i]);
 		}
 	
 
