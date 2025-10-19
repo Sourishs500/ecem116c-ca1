@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 	Each line in the input file is stored as an hex and is 1 byte (each four lines are one instruction). You need to read the file line by line and store it into the memory. You may need a mechanism to convert these values to bits so that you can read opcodes, operands, etc.
 	*/
 
-	char instMem[4096];
+	char instMem[IMEMORY_SIZE];
 
 
 	if (argc < 2) {
@@ -47,11 +47,11 @@ int main(int argc, char* argv[])
 			char x; 
 			line2>>x;
 			instMem[i] = x; // be careful about hex
-			// cout<<instMem[i]<<endl;
+			cout<<instMem[i]<<endl;
 			i++;
 			line2>>x;
 			instMem[i] = x; // be careful about hex
-			// cout<<instMem[i]<<endl;
+			cout<<instMem[i]<<endl;
 			i++;
 		}
 	int maxPC= (i-1)/2; 
@@ -80,12 +80,12 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	/*
+	
 	int a0 = myCPU.regFile.read(bitset<5>(10)); // x10
 	int a1 = myCPU.regFile.read(bitset<5>(11)); // x11
 	// print the results (you should replace a0 and a1 with your own variables that point to a0 and a1)
 	cout << "(" << a0 << "," << a1 << ")" << endl;
-	*/
+	
 
 	return 0;
 

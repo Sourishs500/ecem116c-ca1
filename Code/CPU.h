@@ -9,7 +9,8 @@
 #include <string>
 using namespace std;
 
-#define DMEMORY_SIZE 4096
+#define IMEMORY_SIZE 1000000
+#define DMEMORY_SIZE 1000000
 
 // For ALUOp
 enum {

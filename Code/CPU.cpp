@@ -52,7 +52,7 @@ Instruction InstrMem::fetch(bitset<32> readAddr) {
 	
 	printf("Fetching instruction at address %lu\n", readAddr.to_ulong());
 
-	if (offset + 7 >= 4096) { // 4096 is IMEM size
+	if (offset + 7 >= IMEMORY_SIZE) { // 4096 is IMEM size
 		throw std::runtime_error("readAddr for imem is out of bounds");
 	}
 	
