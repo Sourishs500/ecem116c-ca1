@@ -206,6 +206,25 @@ public:
 	}
 };
 
+// Made for the writeback Mux, with input0 = alu result, input1 = readData, input2 = PC+4, sel0 = memToReg, sel1 = jalr
+class Mux3 {
+public:
+	bitset<32> output;
+
+	void update(bitset<32> input0, bitset<32> input1, bitset<32> input2, bitset<1> sel0, bitset<1> sel1) {
+		// DEBUG: Print inputs and selects
+		printf("Mux3: input0 = %d, input1 = %d, input2 = %d, sel0 = %d, sel1 = %d\n", (int32_t) input0.to_ulong(), (int32_t) input1.to_ulong(), (int32_t) input2.to_ulong(), (int32_t) sel0.to_ulong(), (int32_t) sel1.to_ulong());
+		if (sel0.to_ulong() == 0 && sel1.to_ulong() == 0) {
+			output = input0;
+		} else if (sel0.to_ulong() == 1 && sel1.to_ulong() == 0) {
+			output = input1;
+		} else if (sel0.to_ulong() == 0 && sel1.to_ulong() == 1) {
+			output = input2;
+		}
+		printf("Mux3 output: %d\n", (int32_t) output.to_ulong());
+	}
+};
+
 class ALU {
 public:
 	bitset<32> zero;
@@ -394,6 +413,7 @@ public:
 	bitset<1> regWrite;
 
 	bitset<1> lui; // For lui 
+	bitset<1> jalr; // For jalr
 
 	void update(bitset<7> opcode){
 		// Generate all signals except for aluOp
@@ -407,6 +427,7 @@ public:
 				memToReg.reset();
 
 				lui.reset();
+				jalr.reset();
 
 				aluOp = bitset<4>(R);
 
@@ -422,6 +443,7 @@ public:
 				memToReg.reset();
 
 				lui.reset();
+				jalr.reset();
 
 				aluOp = bitset<4>(I);
 
@@ -437,6 +459,7 @@ public:
 				memToReg.set();
 
 				lui.reset();
+				jalr.reset();
 
 				aluOp = bitset<4>(L);
 
@@ -452,6 +475,7 @@ public:
 				memToReg.reset();
 
 				lui.reset();
+				jalr.reset();
 
 				aluOp = bitset<4>(S);
 
@@ -467,6 +491,7 @@ public:
 				memToReg.reset();
 
 				lui.reset();
+				jalr.reset();
 
 				aluOp = bitset<4>(NOTEQUAL);
 
@@ -483,6 +508,7 @@ public:
 				memToReg.reset();
 
 				lui.set();
+				jalr.reset();
 
 				aluOp = bitset<4>(ADD);
 
@@ -493,12 +519,13 @@ public:
 			case 0b1100111: // jalr
 				regWrite.set();
 				aluSrc.set();
-				branch.set();
+				branch.reset();
 				memRead.reset();
 				memWrite.reset();
 				memToReg.reset();
 
 				lui.reset();
+				jalr.set();
 
 				aluOp = bitset<4>(ADD);
 
@@ -519,6 +546,7 @@ public:
 			<< " memToReg: " << memToReg 
 			<< " aluOp: " << aluOp 
 			<< " lui: " << lui
+			<< " jalr: " << jalr
 			<< "\n\n";
 	}
 
@@ -646,10 +674,11 @@ public:
 
 	ShiftLeft shiftLeftOne;
 	Add addPCImm;
+	Mux2 jalrPCMux;
 	Mux2 pcMux; // Mux that selects between PC+4 and PC+imm
 	
 	DataMem dataMem;
-	Mux2 wbMux;
+	Mux3 wbMux;
 	
 	CPU(char* imem);
 
@@ -679,18 +708,19 @@ public:
 		luiMux.update(regFile.readData1, bitset<32>(0), controller.lui);
 		aluMux.update(regFile.readData2, immGen.imm, controller.aluSrc);	
 		alu.update(luiMux.output, aluMux.output, aluController.aluControlOp);
-		
-		dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite, aluController.rw_size);
-		wbMux.update(alu.aluResult, dataMem.readData, controller.memToReg);
-
-		regFile.update_store(cur_instr.rd, wbMux.output, controller.regWrite);
 
 		// Create nextPC = PC + 4
 		addPC4.update(PC_bitset, bitset<32>(4)); 
+		jalrPCMux.update(addPC4.sum, alu.aluResult, controller.jalr);	
 		
+		dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite, aluController.rw_size);
+		wbMux.update(alu.aluResult, dataMem.readData, addPC4.sum, controller.memToReg, controller.jalr);
+
+		regFile.update_store(cur_instr.rd, wbMux.output, controller.regWrite);
+	
 		bitset<1> pcMuxControlSignal = bitset<1>(controller.branch.to_ulong() & alu.zero.to_ulong());
 
-		pcMux.update(addPC4.sum, addPCImm.sum, pcMuxControlSignal);
+		pcMux.update(jalrPCMux.output, addPCImm.sum, pcMuxControlSignal);
 
 		nextPC = pcMux.output.to_ulong();	
 		printf("cur_PC = %lu, nextPC = %lu\n\n", PC, nextPC);
