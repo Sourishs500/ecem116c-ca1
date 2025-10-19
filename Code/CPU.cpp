@@ -20,7 +20,7 @@ unsigned long CPU::readPC()
 }
 void CPU::incPC()
 {
-	printf("Incrementing PC from %lu to %lu\n\n", PC, nextPC);
+	// printf("Incrementing PC from %lu to %lu\n\n", PC, nextPC);
 	PC = nextPC;
 }
 
@@ -48,14 +48,16 @@ string hex_char_to_bin(char c) {
 
 
 Instruction InstrMem::fetch(bitset<32> readAddr) {
-	int32_t offset = ((int32_t) readAddr.to_ulong()) * 2;
+	// uint32_t offset = ((uint32_t) readAddr.to_ulong()) * 2;
+	uint32_t offset = (uint32_t) readAddr.to_ulong();
 	
-	printf("Fetching instruction at address %lu\n", readAddr.to_ulong());
+	// printf("Fetching instruction at address %lu\n", readAddr.to_ulong());
 
-	if (offset + 7 >= IMEMORY_SIZE) { // 4096 is IMEM size
+	if (offset + 7 >= IMEMORY_SIZE) {
 		throw std::runtime_error("readAddr for imem is out of bounds");
 	}
 	
+	/*
 	string instr_str_hex = std::string() + imem[offset + 6] + imem[offset + 7] + 
 		imem[offset + 4] + imem[offset + 5] +
 		imem[offset + 2] + imem[offset + 3] +
@@ -68,8 +70,19 @@ Instruction InstrMem::fetch(bitset<32> readAddr) {
 	for (int i = 0; i < instr_str_hex.size(); i++) {
 		instr_str += hex_char_to_bin(instr_str_hex[i]);
 	}
+	*/
 	
-	bitset<32> ret_instr(instr_str);
+	uint32_t instr_0_7 = ((uint32_t) imem[offset]) & 0x000000FF;
+	uint32_t instr_8_15 = (((uint32_t) imem[offset + 1]) << 8) & 0x0000FF00;
+	uint32_t instr_16_23 = (((uint32_t) imem[offset + 2]) << 16) & 0x00FF0000;
+	uint32_t instr_24_31 = (((uint32_t) imem[offset + 3]) << 24) & 0xFF000000;
+	uint32_t instr = instr_24_31 | instr_16_23 | instr_8_15 | instr_0_7;	
+	
+	/* DEBUG
+	printf("Instruction in hex: %x\n", instr);
+	*/
+
+	bitset<32> ret_instr(instr);
 	return Instruction(ret_instr);
 }
 

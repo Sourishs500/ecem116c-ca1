@@ -36,6 +36,8 @@ enum {
 	BYTE
 };
 
+string hex_char_to_bin(char c);
+
 class Instruction {
 public:
 	Instruction(bitset<32> raw_instr = bitset<32>(0)) {
@@ -49,7 +51,7 @@ public:
 
 		if (raw_instr.to_ulong() == 0) return;
 
-		// DEBUG
+		/* DEBUG
 		cout << "Instruction: " << instr << endl;
 		cout << "Opcode: " << opcode << endl;
 		cout << "rs1: " << rs1 << endl;
@@ -57,6 +59,7 @@ public:
 		cout << "rd: " << rd << endl;
 		cout << "bit30: " << bit30 << endl;
 		cout << "bit14to12: " << bit14to12 << "\n\n";
+		*/
 	}
 
 	bitset<32> instr;
@@ -132,8 +135,9 @@ public:
 		readData1 = read(rs1);
 		readData2 = read(rs2);
 		
-		// DEBUG
+		/* DEBUG
 		printf("RegFile: readData1 = %d, readData2 = %d\n", (int32_t) readData1.to_ulong(), (int32_t) readData2.to_ulong());
+		*/
 	}
 	
 	void update_store(bitset<5> rd, bitset<32> writeData, bitset<1> regWrite) {
@@ -175,10 +179,11 @@ public:
 				int32_t imm_10_5 = ((int32_t) (instr_signed & 0x7E000000)) >> 20; // instr[30:25]
 				int32_t imm_4_1 = ((int32_t) (instr_signed & 0x00000F00)) >> 7; // instr[11:8]
 				int32_t imm_11 = ((int32_t) (instr_signed & 0x00000080)) << 4; // instr[7]	
-				imm = bitset<32>(imm_12 | imm_10_5 | imm_4_1 | imm_11);
+				imm = bitset<32>((imm_12 | imm_10_5 | imm_4_1 | imm_11) >> 1);
 
-				// DEBUG
+				/* DEBUG
 				cout << "imm parts: imm_12=" << bitset<32>(imm_12) << ", imm_10_5=" << bitset<32>(imm_10_5) << ", imm_4_1=" << bitset<32>(imm_4_1) << ", imm_11=" << bitset<32>(imm_11) << "\n";
+				*/
 
 				break;
 			}
@@ -192,8 +197,9 @@ public:
 			default:
 				break;
 		}
-		// DEBUG
+		/* DEBUG
 		cout << "immGen: " << imm << "\n";
+		*/
 	}
 };
 
@@ -213,8 +219,9 @@ public:
 	bitset<32> output;
 
 	void update(bitset<32> input0, bitset<32> input1, bitset<32> input2, bitset<1> sel0, bitset<1> sel1) {
-		// DEBUG: Print inputs and selects
+		/* DEBUG: Print inputs and selects
 		printf("Mux3: input0 = %d, input1 = %d, input2 = %d, sel0 = %d, sel1 = %d\n", (int32_t) input0.to_ulong(), (int32_t) input1.to_ulong(), (int32_t) input2.to_ulong(), (int32_t) sel0.to_ulong(), (int32_t) sel1.to_ulong());
+		*/
 		if (sel0.to_ulong() == 0 && sel1.to_ulong() == 0) {
 			output = input0;
 		} else if (sel0.to_ulong() == 1 && sel1.to_ulong() == 0) {
@@ -222,7 +229,9 @@ public:
 		} else if (sel0.to_ulong() == 0 && sel1.to_ulong() == 1) {
 			output = input2;
 		}
+		/*
 		printf("Mux3 output: %d\n", (int32_t) output.to_ulong());
+		*/
 	}
 };
 
@@ -281,8 +290,9 @@ public:
 				break;				
 		}
 
-		// DEBUG: Print aluResult, input0, input1, aluOp
+		/* DEBUG: Print aluResult, input0, input1, aluOp
 		printf("ALU: input0 = %d, input1 = %d, aluOp = %d, aluResult = %d, zero = %d\n", (int32_t) input0_ulong, (int32_t) input1_ulong, (int32_t) aluOp.to_ulong(), (int32_t) aluResult.to_ulong(), (int32_t) zero.to_ulong());
+		*/
 	}
 };
 
@@ -292,7 +302,7 @@ public:
 
 	bitset<32> add(bitset<32> i1, bitset<32> i2) {
 		bitset<32> result = bitset<32>((int32_t) i1.to_ulong() + (int32_t) i2.to_ulong());
-		printf("ADD(%d, %d) = %d\n", (int32_t) i1.to_ulong(), (int32_t) i2.to_ulong(), (int32_t) result.to_ulong());
+		// printf("ADD(%d, %d) = %d\n", (int32_t) i1.to_ulong(), (int32_t) i2.to_ulong(), (int32_t) result.to_ulong());
 		return result;
 	}
 
@@ -331,12 +341,15 @@ private:
 
 		if (size == WORD) {
 			ret = (((uint32_t) dmemory[addr + 3] << 24) & 0xFF000000) | ((((uint32_t) dmemory[addr + 2]) << 16) & 0x00FF0000) | ((((uint32_t) dmemory[addr + 1]) << 8) & 0x0000FF00) | (((uint32_t) dmemory[addr]) & 0xFF);
-			// DEBUG: Print part of memory that got read with address and data
+			/* DEBUG: Print part of memory that got read with address and data
 			printf("DMEM READ, WORD: Address %d to %d, Data %x\n", addr, addr + 3, ret);
+			*/
 		}
 		else if (size == BYTE) {
 			ret = (uint8_t) dmemory[addr]; // Should zero-extend
+			/* DEBUG
 			printf("DMEM READ, BYTE: Address %d, Data %hhx\n", addr, dmemory[addr]);
+			*/
 		}
 		
 		return bitset<32>(ret);
@@ -348,11 +361,11 @@ private:
 		uint32_t size = rw_size.to_ulong();
 
 		if (addr < 0) {
-			printf("ERROR DataMem::read: addr < 0\n");
+			// printf("ERROR DataMem::read: addr < 0\n");
 			exit(1);
 		}
 		if (addr + 3 > DMEMORY_SIZE) {
-			printf("ERROR Datamem::read: addr + 3 > DMEMORY_SIZE\n");
+			// printf("ERROR Datamem::read: addr + 3 > DMEMORY_SIZE\n");
 			exit(1);
 		}
 		
@@ -362,18 +375,20 @@ private:
 			dmemory[addr + 1] = (writeData >> 8) & 0xFF;
 			dmemory[addr] = writeData & 0xFF;
 			
-			// DEBUG: Print part of memory that got written to with address and data
+			/* DEBUG: Print part of memory that got written to with address and data
 			for (int i = 0; i < 4; i++) {
 				printf("DMEM WRITE, WORD: Address %d, Data %hhx\n", addr + i, (int8_t) dmemory[addr + i]);
 			}
+			*/
 		} else if (size == HALF) {
 			dmemory[addr + 1] = (uint8_t) ((writeData >> 8) & 0xFF);
 			dmemory[addr] = (uint8_t) (writeData & 0xFF);
 			
-			// DEBUG: Print part of memory that got written to with address and data
+			/* DEBUG: Print part of memory that got written to with address and data
 			for (int i = 0; i < 2; i++) {
 				printf("DMEM WRITE, HALF: Address %d, Data %hhx\n", addr + i, (int8_t) dmemory[addr + i]);
 			}
+			*/
 		}
 	
 
@@ -432,7 +447,7 @@ public:
 
 				aluOp = bitset<4>(R);
 
-				printf("Controller: R-type case\n");
+				// printf("Controller: R-type case\n");
 
 				break;
 			case 0b0010011: // I-type
@@ -448,7 +463,7 @@ public:
 
 				aluOp = bitset<4>(I);
 
-				printf("Controller: I-type case\n");
+				// printf("Controller: I-type case\n");
 
 				break;
 			case 0b0000011: // lw or lbu
@@ -464,7 +479,7 @@ public:
 
 				aluOp = bitset<4>(L);
 
-				printf("Controller: lw/lbu case\n");
+				// printf("Controller: lw/lbu case\n");
 
 				break;
 			case 0b0100011: // sw 
@@ -480,7 +495,7 @@ public:
 
 				aluOp = bitset<4>(S);
 
-				printf("Controller: sw case\n");
+				// printf("Controller: sw case\n");
 
 				break;
 			case 0b1100011: // bne
@@ -496,7 +511,7 @@ public:
 
 				aluOp = bitset<4>(NOTEQUAL);
 
-				printf("Controller: bne case\n");
+				// printf("Controller: bne case\n");
 
 				break;
 
@@ -513,7 +528,7 @@ public:
 
 				aluOp = bitset<4>(ADD);
 
-				printf("Controller: lui case\n");
+				// printf("Controller: lui case\n");
 
 				break;
 
@@ -530,14 +545,14 @@ public:
 
 				aluOp = bitset<4>(ADD);
 
-				printf("Controller: jalr case\n");
+				// printf("Controller: jalr case\n");
 
 				break;
 			default:
 				break;
 		}
 		
-		// DEBUG print control signals on single line
+		/* DEBUG print control signals on single line
 		cout << "Control Signals:" 
 			<< " regWrite: " << regWrite 
 			<< " aluSrc: " << aluSrc 
@@ -549,6 +564,7 @@ public:
 			<< " lui: " << lui
 			<< " jalr: " << jalr
 			<< "\n\n";
+		*/
 	}
 
 };
@@ -643,8 +659,9 @@ public:
 			default:
 				break;
 		}
-		// DEBUG
+		/* DEBUG
 		cout << "aluControlOp: " << aluControlOp << "\n";
+		*/
 	}
 };
 
@@ -691,7 +708,7 @@ public:
 		Instruction cur_instr = instrMem.instr;
 
 		if (cur_instr.opcode.to_ulong() == 0) {
-			cout << "Reached OPCODE 0, exiting\n" << endl;
+			// cout << "Reached OPCODE 0, exiting\n" << endl;
 			*done = true;
 			return;
 		}
@@ -724,9 +741,9 @@ public:
 		pcMux.update(jalrPCMux.output, addPCImm.sum, pcMuxControlSignal);
 
 		nextPC = pcMux.output.to_ulong();	
-		printf("cur_PC = %lu, nextPC = %lu\n\n", PC, nextPC);
+		// printf("cur_PC = %lu, nextPC = %lu\n\n", PC, nextPC);
 
-		regFile.regDump();
+		// regFile.regDump();
 	};
 
 };

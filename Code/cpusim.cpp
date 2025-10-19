@@ -46,16 +46,20 @@ int main(int argc, char* argv[])
 			stringstream line2(line);
 			char x; 
 			line2>>x;
-			instMem[i] = x; // be careful about hex
-			cout<<instMem[i]<<endl;
-			i++;
+			string instr_first_half = hex_char_to_bin(x);
+			// instMem[i] = x; // be careful about hex
+			// cout<<instMem[i]<<endl;
+			// i++;
 			line2>>x;
-			instMem[i] = x; // be careful about hex
-			cout<<instMem[i]<<endl;
+			string instr_second_half = hex_char_to_bin(x);
+			bitset<8> instr_bits = bitset<8>(instr_first_half + instr_second_half);
+			char instr = (char) instr_bits.to_ulong();
+			instMem[i] = instr; // be careful about hex
+			// cout<<(uint8_t) instMem[i]<<endl;
 			i++;
 		}
-	int maxPC= (i-1)/2; 
-	printf("maxPC = %d\n", maxPC);
+	int maxPC = i-5;
+	// printf("maxPC = %d\n", maxPC);
 
 	/* Instantiate your CPU object here.  CPU class is the main class in this project that defines different components of the processor.
 	CPU class also has different functions for each stage (e.g., fetching an instruction, decoding, etc.).
@@ -69,14 +73,13 @@ int main(int argc, char* argv[])
 	
 	
 	bool done = false;
-	// myCPU.update(&done);
 	
 	while (!done) // processor's main loop. Each iteration is equal to one clock cycle.  
 	{
 		myCPU.update(&done);
 		myCPU.incPC();
-		if (myCPU.readPC() >= maxPC) {
-			printf("PC %lu reached maxPC%d\n", myCPU.readPC(), maxPC);
+		if (myCPU.readPC() > maxPC) {
+			// printf("PC %lu reached maxPC%d\n", myCPU.readPC(), maxPC);
 			break;
 		}
 	}
