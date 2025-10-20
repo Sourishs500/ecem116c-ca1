@@ -28,6 +28,11 @@ int main(int argc, char* argv[])
 
 	char instMem[IMEMORY_SIZE];
 
+	// Initialize instruction memory to zero
+	for (int i = 0; i < IMEMORY_SIZE; i++) {
+		instMem[i] = 0;
+	}
+
 
 	if (argc < 2) {
 		//cout << "No file name entered. Exiting...";
@@ -42,20 +47,17 @@ int main(int argc, char* argv[])
 	string line; 
 	int i = 0;
 	while (infile) {
+			// Each single element of IMEM is one byte and stores one byte of the instruction. Four consecutive bytes form one instruction.
 			infile>>line;
 			stringstream line2(line);
 			char x; 
 			line2>>x;
 			string instr_first_half = hex_char_to_bin(x);
-			// instMem[i] = x; // be careful about hex
-			// cout<<instMem[i]<<endl;
-			// i++;
 			line2>>x;
 			string instr_second_half = hex_char_to_bin(x);
 			bitset<8> instr_bits = bitset<8>(instr_first_half + instr_second_half);
 			char instr = (char) instr_bits.to_ulong();
 			instMem[i] = instr; // be careful about hex
-			// cout<<(uint8_t) instMem[i]<<endl;
 			i++;
 		}
 	int maxPC = i-5;
@@ -65,19 +67,14 @@ int main(int argc, char* argv[])
 	CPU class also has different functions for each stage (e.g., fetching an instruction, decoding, etc.).
 	*/
 	
-	CPU myCPU = CPU(instMem);  // call the approriate constructor here to initialize the processor...  
-	// make sure to create a variable for PC and resets it to zero (e.g., unsigned int PC = 0); 
-
-	/* OPTIONAL: Instantiate your Instruction object here. */
-	//Instruction myInst; 
-	
+	CPU myCPU = CPU(instMem);
 	
 	bool done = false;
 	
 	while (!done) // processor's main loop. Each iteration is equal to one clock cycle.  
 	{
-		myCPU.update(&done);
-		myCPU.incPC();
+		myCPU.update(&done); // CPU goes through a single cycle and writes to done if opcode == 0
+		myCPU.incPC(); // Set PC to nextPC
 		if (myCPU.readPC() > maxPC) {
 			// printf("PC %lu reached maxPC%d\n", myCPU.readPC(), maxPC);
 			break;
