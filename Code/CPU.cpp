@@ -501,7 +501,6 @@ void Controller::update(bitset<7> opcode){
 
 // Update the final aluControlOp based on the aluOp from Controller and funct3/funct7 bits from instruction
 void ALUController::update(bitset<1> bit30, bitset<3> bits14to12, bitset<4> aluOp) {
-	lui = bitset<2>(0); // Reset
 	switch (aluOp.to_ulong()) {
 		// For these cases where aluOp is decided by the opcode alone, set aluControlOp directly
 		case ADD:
@@ -639,8 +638,8 @@ void CPU::update(bool* done) {
 	alu.update(luiMux.output, aluMux.output, aluController.aluControlOp); // ALU computation
 
 	// For nextPC
-	addPC4.update(PC_bitset, bitset<32>(4)); 
-	jalrPCMux.update(addPC4.sum, alu.aluResult, controller.jalr);
+	addPC4.update(PC_bitset, bitset<32>(4)); // PC + 4
+	jalrPCMux.update(addPC4.sum, alu.aluResult, controller.jalr); // Mux selects between PC+4 and rs1+imm
 	
 	// Memory Stage
 	dataMem.update(alu.aluResult, regFile.readData2, controller.memRead, controller.memWrite, aluController.rw_size);

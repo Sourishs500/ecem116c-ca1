@@ -198,8 +198,8 @@ public:
 	bitset<1> aluSrc;
 	bitset<1> regWrite;
 
-	bitset<1> lui; // For lui 
-	bitset<1> jalr; // For jalr
+	bitset<1> lui; // Control signal to be set if instruction is lui, used to select between rs1 and 0 in ALU input mux
+	bitset<1> jalr; // Control signal to be set if instruction is jalr, used to select between PC+4 and rs1+imm in mux
 
 	void update(bitset<7> opcode);
 
@@ -210,7 +210,6 @@ class ALUController {
 public:
 	bitset<4> aluControlOp; // Control signal to be routed to ALU
 	
-	bitset<2> lui; // Control signal to be set if instruction is lui, used to select between rs1 and 0 in ALU input mux
 	bitset<2> rw_size; // Control signal to be set for load/store size (word/half/byte)
 
 	void update(bitset<1> bit30, bitset<3> bits14to12, bitset<4> aluOp);
